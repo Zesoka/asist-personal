@@ -1,4 +1,6 @@
-const API_URL = 'http://localhost:8000';
+const API_URL = typeof window !== 'undefined'
+  ? `${window.location.protocol}//${window.location.hostname}:8000`
+  : 'http://localhost:8000';
 
 // Helper to get authorization headers
 export function getHeaders(isFormData = false) {
@@ -198,8 +200,10 @@ export const api = {
   },
 
   getWebSocketUrl() {
-    // Return WebSocket connection url
-    return `ws://${API_URL.replace('http://', '')}/chat/ws`;
+    const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    const wsProtocol = isSecure ? 'wss:' : 'ws:';
+    const cleanUrl = API_URL.replace(/^https?:\/\//i, '');
+    return `${wsProtocol}//${cleanUrl}/chat/ws`;
   },
 
   // --- TRANSCRIBER SERVICES ---
