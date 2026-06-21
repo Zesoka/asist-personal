@@ -229,7 +229,7 @@ export default function Shortcuts() {
               >
                 <div className="shortcut-icon">
                   {isCustomIcon ? (
-                    <img src={`http://localhost:8000${sh.icon_path}`} alt={sh.name} />
+                    <img src={`${sh.icon_path}`} alt={sh.name} />
                   ) : (
                     sh.icon_path
                   )}

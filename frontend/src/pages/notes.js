@@ -228,7 +228,7 @@ export default function Notes() {
                       {note.image_path && (
                         <div style={{ width: '150px', height: '150px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                           <img 
-                            src={`http://localhost:8000${note.image_path}`} 
+                            src={`${note.image_path}`} 
                             alt={note.title} 
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           />
