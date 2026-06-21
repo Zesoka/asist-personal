@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
 import { Youtube, Sparkles, FileText, Download, AlertCircle } from 'lucide-react';
@@ -9,13 +9,25 @@ export default function Transcriber() {
   const [customKey, setCustomKey] = useState('');
   const [tutorial, setTutorial] = useState('');
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState('');
+  const pollIntervalRef = useRef(null);
+
+  useEffect(() => {
+    // Cleanup polling interval on component unmount
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, []);
 
   const handleProcess = async (e) => {
     e.preventDefault();
     setError('');
     setTutorial('');
+    setStatusMessage('Inicializando procesamiento de video...');
     setLoading(true);
 
     if (!youtubeUrl) {
@@ -24,12 +36,51 @@ export default function Transcriber() {
       return;
     }
 
+    // Clean up any existing interval
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+
     try {
-      const res = await api.processVideo(youtubeUrl, provider, customKey || null);
-      setTutorial(res.tutorial);
+      const initRes = await api.processVideo(youtubeUrl, provider, customKey || null);
+      const taskId = initRes.task_id;
+
+      // Start status polling
+      pollIntervalRef.current = setInterval(async () => {
+        try {
+          const statusRes = await api.getTranscriberStatus(taskId);
+          
+          if (statusRes.status === 'completed') {
+            setTutorial(statusRes.tutorial);
+            setLoading(false);
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+          } else if (statusRes.status === 'failed') {
+            setError(statusRes.error || 'Error al procesar el video');
+            setLoading(false);
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+          } else {
+            // pending or processing
+            setStatusMessage(statusRes.message || 'Procesando...');
+          }
+        } catch (err) {
+          setError(err.message || 'Error al consultar el progreso de la tarea');
+          setLoading(false);
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+        }
+      }, 3000);
+
     } catch (err) {
       setError(err.message || 'Error al procesar el video. Revisa la URL.');
-    } finally {
       setLoading(false);
     }
   };
@@ -73,6 +124,7 @@ export default function Transcriber() {
                   className="form-input" 
                   value={provider} 
                   onChange={(e) => setProvider(e.target.value)}
+                  disabled={loading}
                 >
                   <option value="mock">Prueba (Modo Mock - Rápido)</option>
                   <option value="gemini">Google Gemini 2.5 Flash</option>
@@ -89,6 +141,7 @@ export default function Transcriber() {
                     value={customKey}
                     onChange={(e) => setCustomKey(e.target.value)}
                     placeholder="Ingresa clave API para esta sesión"
+                    disabled={loading}
                   />
                 </div>
               )}
@@ -106,6 +159,7 @@ export default function Transcriber() {
                     onChange={(e) => setYoutubeUrl(e.target.value)}
                     placeholder="https://www.youtube.com/watch?v=..."
                     style={{ paddingLeft: '45px' }}
+                    disabled={loading}
                   />
                 </div>
                 <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -115,6 +169,30 @@ export default function Transcriber() {
               </div>
             </div>
           </form>
+
+          {loading && (
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              padding: '30px', gap: '15px', backgroundColor: 'rgba(99, 102, 241, 0.05)',
+              border: '1px solid rgba(99, 102, 241, 0.15)', borderRadius: '12px', marginTop: '20px'
+            }}>
+              <style>{`
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              `}</style>
+              <div style={{
+                width: '36px', height: '36px', border: '3px solid rgba(99, 102, 241, 0.1)',
+                borderTopColor: 'var(--accent-color)', borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }}></div>
+              <div style={{ textAlign: 'center' }}>
+                <span style={{ display: 'block', fontWeight: '600', color: 'var(--text-primary)', fontSize: '0.95rem' }}>{statusMessage}</span>
+                <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '4px' }}>Este proceso asíncrono descarga el audio del video y lo analiza en segundo plano de forma segura.</span>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div style={{ 

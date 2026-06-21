@@ -280,6 +280,17 @@ export const api = {
     return res.json();
   },
 
+  async getTranscriberStatus(taskId) {
+    const res = await fetch(`${API_URL}/transcriber/status/${taskId}`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Error obteniendo estado de la tarea');
+    }
+    return res.json();
+  },
+
   async downloadTutorial(markdownContent, format) {
     const res = await fetch(`${API_URL}/transcriber/export`, {
       method: 'POST',
