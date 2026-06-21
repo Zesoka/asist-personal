@@ -17,6 +17,8 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    environment:
+      - NODE_ENV=development
     # Run in development mode locally
     command: npm run dev
     networks:
