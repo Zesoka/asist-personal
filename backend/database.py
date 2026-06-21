@@ -77,9 +77,15 @@ def init_db():
                 description TEXT,
                 start_time TIMESTAMP NOT NULL,
                 end_time TIMESTAMP NOT NULL,
+                location TEXT,
                 FOREIGN KEY (user_id) REFERENCES users (id)
             )
         """)
+        
+        cursor.execute("PRAGMA table_info(family_events)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if 'location' not in columns:
+            cursor.execute("ALTER TABLE family_events ADD COLUMN location TEXT")
         
         # 6. AI Conversations Table
         cursor.execute("""
