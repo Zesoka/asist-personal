@@ -37,14 +37,28 @@ export default function CameraCapture({ onCapture, onClose }) {
     const canvas = canvasRef.current;
     if (video && canvas) {
       const ctx = canvas.getContext('2d');
-      // Set canvas size matching the video resolution
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      // Draw frame to canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       
-      // Get base64 data url
-      const dataUrl = canvas.toDataURL('image/jpeg');
+      // Limit max resolution to 800px for web uploads to prevent proxy size limit errors
+      const maxDim = 800;
+      let width = video.videoWidth;
+      let height = video.videoHeight;
+      
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(video, 0, 0, width, height);
+      
+      // Compress to 65% quality JPEG
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.65);
       setCapturedImage(dataUrl);
     }
   };

@@ -40,6 +40,10 @@ export default function ProfileSettings() {
         setError('El archivo debe ser una imagen');
         return;
       }
+      if (file.size > 1.5 * 1024 * 1024) {
+        setError('La imagen es demasiado grande. Selecciona una de menos de 1.5 MB.');
+        return;
+      }
       setAvatarFile(file);
       setAvatarPreview(URL.createObjectURL(file));
       setError('');
