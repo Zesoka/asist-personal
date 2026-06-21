@@ -32,6 +32,8 @@ export const api = {
     localStorage.setItem('token', data.access_token);
     localStorage.setItem('role', data.role);
     localStorage.setItem('username', data.username);
+    localStorage.setItem('full_name', data.full_name || '');
+    localStorage.setItem('avatar_url', data.avatar_url || '');
     return data;
   },
 
@@ -39,6 +41,8 @@ export const api = {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
     localStorage.removeItem('username');
+    localStorage.removeItem('full_name');
+    localStorage.removeItem('avatar_url');
   },
 
   async getMe() {
@@ -57,11 +61,11 @@ export const api = {
     return res.json();
   },
 
-  async registerUser(username, password, role) {
+  async registerUser(username, password, role, fullName) {
     const res = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ username, password, role })
+      body: JSON.stringify({ username, password, role, full_name: fullName })
     });
     if (!res.ok) {
       const err = await res.json();
@@ -76,6 +80,35 @@ export const api = {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Error al eliminar usuario');
+    return res.json();
+  },
+
+  async updateProfile(formData) {
+    const res = await fetch(`${API_URL}/auth/profile`, {
+      method: 'PUT',
+      headers: getHeaders(true),
+      body: formData
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Error al actualizar el perfil');
+    }
+    const data = await res.json();
+    if (data.full_name !== undefined) localStorage.setItem('full_name', data.full_name || '');
+    if (data.avatar_url !== undefined) localStorage.setItem('avatar_url', data.avatar_url || '');
+    return data;
+  },
+
+  async updateUser(userId, userData) {
+    const res = await fetch(`${API_URL}/auth/users/${userId}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(userData)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Error al actualizar el usuario');
+    }
     return res.json();
   },
 

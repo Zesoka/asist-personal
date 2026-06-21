@@ -28,6 +28,11 @@ def init_db():
             )
         """)
         
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if 'full_name' not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN full_name TEXT")
+        
         # 2. Shortcuts Table (with custom icon support)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS shortcuts (
@@ -93,8 +98,12 @@ def init_db():
         if cursor.fetchone()[0] == 0:
             admin_pw_hash = security.get_password_hash("admin123")
             cursor.execute(
-                "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-                ("admin", admin_pw_hash, "admin")
+                "INSERT INTO users (username, password_hash, role, full_name) VALUES (?, ?, ?, ?)",
+                ("admin", admin_pw_hash, "admin", "Bruno Almiron")
+            )
+        else:
+            cursor.execute(
+                "UPDATE users SET full_name = 'Bruno Almiron' WHERE username = 'admin' AND (full_name IS NULL OR full_name = '')"
             )
             
         # Seed some default shortcuts if empty

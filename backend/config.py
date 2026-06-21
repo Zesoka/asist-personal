@@ -22,7 +22,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 MEDIA_DIR = BASE_DIR / "media"
 ICONS_DIR = MEDIA_DIR / "icons"
 NOTES_DIR = MEDIA_DIR / "notes"
+AVATARS_DIR = MEDIA_DIR / "avatars"
 
 # Ensure directories exist
 ICONS_DIR.mkdir(parents=True, exist_ok=True)
 NOTES_DIR.mkdir(parents=True, exist_ok=True)
+AVATARS_DIR.mkdir(parents=True, exist_ok=True)

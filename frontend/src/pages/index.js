@@ -1,261 +1,357 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { api } from '../utils/api';
-import { Plus, Trash2 } from 'lucide-react';
+import { CloudSun, TrendingUp, Newspaper, Trophy, Compass, Clock } from 'lucide-react';
 
-export default function Shortcuts() {
-  const [shortcuts, setShortcuts] = useState([]);
-  const [role, setRole] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
+export default function DashboardHome() {
+  const [displayName, setDisplayName] = useState('');
   
-  // Form states
-  const [name, setName] = useState('');
-  const [url, setUrl] = useState('');
-  const [iconType, setIconType] = useState('emoji');
-  const [emoji, setEmoji] = useState('🔗');
-  const [iconFile, setIconFile] = useState(null);
-  const [message, setMessage] = useState('');
+  // Weather States
+  const [weather, setWeather] = useState(null);
+  const [city, setCity] = useState('Buenos Aires, AR');
+  const [weatherLoading, setWeatherLoading] = useState(true);
+
+  // Dollar States
+  const [dolar, setDolar] = useState([]);
+  const [dolarLoading, setDolarLoading] = useState(true);
+
+  // News States
+  const [news, setNews] = useState([]);
+  const [newsLoading, setNewsLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      fetchShortcuts();
-      setRole(localStorage.getItem('role') || '');
+      const storedFullName = localStorage.getItem('full_name');
+      const storedUsername = localStorage.getItem('username');
+      setDisplayName(storedFullName || storedUsername || 'Familiar');
+      loadWeatherAndLocation();
+      fetchDolarRates();
+      fetchNews();
     }
   }, []);
 
-  const fetchShortcuts = async () => {
-    try {
-      const data = await api.listShortcuts();
-      if (Array.isArray(data)) {
-        setShortcuts(data);
-      }
-    } catch (err) {
-      console.error('Error fetching shortcuts:', err);
-    }
-  };
+  // Weather & Location loading
+  const loadWeatherAndLocation = () => {
+    // Default fallback coordinates (Buenos Aires)
+    let lat = -34.6037;
+    let lon = -58.3816;
+    setCity('Buenos Aires, AR');
 
-  const handleShortcutClick = async (shortcut) => {
-    try {
-      // Track click in backend
-      await api.trackClick(shortcut.id);
-      
-      // Update local count
-      setShortcuts(prev => prev.map(item => 
-        item.id === shortcut.id ? { ...item, clicks: item.clicks + 1 } : item
-      ));
-
-      // Open URL in new window/tab
-      window.open(shortcut.url, '_blank');
-    } catch (err) {
-      console.error('Error tracking click:', err);
-    }
-  };
-
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setIconFile(e.target.files[0]);
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMessage('');
-    
-    if (!name || !url) {
-      setMessage('Por favor, completa los campos obligatorios');
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('url', url);
-    formData.append('icon_type', iconType);
-    
-    if (iconType === 'emoji') {
-      formData.append('emoji', emoji);
-    } else if (iconType === 'upload' && iconFile) {
-      formData.append('file', iconFile);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          lat = position.coords.latitude;
+          lon = position.coords.longitude;
+          
+          // Try to reverse geocode the city name
+          try {
+            const geoRes = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=es`);
+            if (geoRes.ok) {
+              const geoData = await geoRes.json();
+              const cityName = geoData.city || geoData.locality || geoData.principalSubdivision || 'Tu ubicación';
+              const countryCode = geoData.countryCode || 'AR';
+              setCity(`${cityName}, ${countryCode}`);
+            }
+          } catch (err) {
+            console.error('Error in reverse geocoding:', err);
+            setCity('Ubicación local');
+          }
+          
+          fetchWeather(lat, lon);
+        },
+        (error) => {
+          console.warn('Geolocation denied or failed. Using fallback (Buenos Aires):', error);
+          fetchWeather(lat, lon);
+        }
+      );
     } else {
-      formData.append('emoji', '🔗');
+      fetchWeather(lat, lon);
     }
+  };
 
+  // Weather API call
+  const fetchWeather = async (lat, lon) => {
     try {
-      await api.createShortcut(formData);
-      // Reset form
-      setName('');
-      setUrl('');
-      setEmoji('🔗');
-      setIconFile(null);
-      setShowAddForm(false);
-      // Refresh list
-      fetchShortcuts();
+      setWeatherLoading(true);
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`);
+      if (res.ok) {
+        const data = await res.json();
+        setWeather(data);
+      }
     } catch (err) {
-      setMessage(err.message || 'Error al guardar el acceso directo');
+      console.error('Error fetching weather:', err);
+    } finally {
+      setWeatherLoading(false);
     }
   };
 
-  const handleDelete = async (e, id) => {
-    e.stopPropagation(); // Avoid triggering click counter
-    if (window.confirm('¿Estás seguro de que quieres eliminar este acceso directo?')) {
-      try {
-        await api.deleteShortcut(id);
-        fetchShortcuts();
-      } catch (err) {
-        console.error('Error deleting shortcut:', err);
+  // Dollar API call
+  const fetchDolarRates = async () => {
+    try {
+      setDolarLoading(true);
+      const res = await fetch('https://dolarapi.com/v1/dolares');
+      if (res.ok) {
+        const data = await res.json();
+        // We only care about Oficial and Blue for a clean card
+        const filtered = data.filter(d => d.casa === 'oficial' || d.casa === 'blue');
+        setDolar(filtered);
       }
+    } catch (err) {
+      console.error('Error fetching dollar:', err);
+    } finally {
+      setDolarLoading(false);
     }
   };
+
+  // News API call
+  const fetchNews = async () => {
+    try {
+      setNewsLoading(true);
+      const data = await api.getDashboardNews();
+      if (Array.isArray(data)) {
+        setNews(data);
+      }
+    } catch (err) {
+      console.error('Error fetching news:', err);
+    } finally {
+      setNewsLoading(false);
+    }
+  };
+
+  // Weather description converter
+  const getWeatherDesc = (code) => {
+    const codes = {
+      0: { label: 'Despejado', icon: '☀️' },
+      1: { label: 'Mayormente despejado', icon: '🌤️' },
+      2: { label: 'Parcialmente nublado', icon: '⛅' },
+      3: { label: 'Nublado', icon: '☁️' },
+      45: { label: 'Niebla', icon: '🌫️' },
+      48: { label: 'Niebla de escarcha', icon: '🌫️' },
+      51: { label: 'Llovizna ligera', icon: '🌧️' },
+      53: { label: 'Llovizna moderada', icon: '🌧️' },
+      55: { label: 'Llovizna densa', icon: '🌧️' },
+      61: { label: 'Lluvia débil', icon: '🌧️' },
+      63: { label: 'Lluvia moderada', icon: '🌧️' },
+      65: { label: 'Lluvia fuerte', icon: '🌧️' },
+      80: { label: 'Chaparrones débiles', icon: '🌦️' },
+      81: { label: 'Chaparrones moderados', icon: '🌦️' },
+      82: { label: 'Chaparrones violentos', icon: '⛈️' },
+      95: { label: 'Tormenta eléctrica', icon: '⛈️' },
+    };
+    return codes[code] || { label: 'Templado', icon: '🌡️' };
+  };
+
+  // Format Date for header
+  const getFormattedDate = () => {
+    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const d = new Date();
+    return `${days[d.getDay()]}, ${d.getDate()} de ${months[d.getMonth()]} de ${d.getFullYear()}`;
+  };
+
+  // World Cup recent match results (Actual tournament context as of June 2026)
+  const wcResults = [
+    { date: '22 Jun 2026 (Mañana)', teams: '🇦🇷 Argentina vs. 🇦🇹 Austria', stage: 'Grupo J (Fase de Grupos)', status: 'Próximo - 22:00' },
+    { date: '16 Jun 2026', teams: '🇦🇷 Argentina 3 - 0 🇩🇿 Argelia', stage: 'Grupo J (Fase de Grupos)', status: 'Finalizado' },
+    { date: '12 Jun 2026', teams: '🇺🇸 EE.UU. 4 - 1 🇵🇾 Paraguay', stage: 'Grupo D (Fase de Grupos)', status: 'Finalizado' },
+    { date: '12 Jun 2026', teams: '🇨🇦 Canadá 1 - 1 🇧🇦 Bosnia y H.', stage: 'Grupo B (Fase de Grupos)', status: 'Finalizado' },
+    { date: '11 Jun 2026', teams: '🇲🇽 México 2 - 0 🇿🇦 Sudáfrica', stage: 'Grupo A (Partido Inaugural)', status: 'Finalizado' },
+    { date: '27 Jun 2026', teams: '🇯🇴 Jordania vs. 🇦🇷 Argentina', stage: 'Grupo J (Fase de Grupos)', status: 'Próximamente' }
+  ];
 
   return (
     <Layout>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-        <div>
-          <h1 className="page-title">🔗 Accesos Directos</h1>
-          <p className="page-description">Tus sitios web de uso diario a un solo clic.</p>
-        </div>
-        {role === 'admin' && (
-          <button 
-            className="btn btn-primary"
-            onClick={() => setShowAddForm(!showAddForm)}
-          >
-            <Plus size={18} />
-            <span>{showAddForm ? 'Cerrar Formulario' : 'Añadir Acceso'}</span>
-          </button>
-        )}
+      {/* Welcome Header */}
+      <div className="page-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '20px', marginBottom: '30px' }}>
+        <h1 className="page-title" style={{ fontSize: '2.5rem', fontWeight: '800' }}>
+          Bienvenido {displayName} 👋
+        </h1>
+        <p className="page-description" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', marginTop: '5px' }}>
+          <Clock size={16} /> <span>{getFormattedDate()}</span>
+          <span style={{ color: 'var(--text-muted)' }}>•</span>
+          <Compass size={16} /> <span>{city}</span>
+        </p>
       </div>
 
-      {showAddForm && role === 'admin' && (
-        <div className="glass-panel" style={{ marginBottom: '30px', maxWidth: '600px' }}>
-          <h3 style={{ marginBottom: '20px', fontSize: '1.1rem', fontWeight: '750' }}>➕ Crear Acceso Directo</h3>
+      {/* Main Grid: Left Column (Wider: 1.62fr) & Right Column (1fr) */}
+      <div className="dashboard-grid">
+        
+        {/* LEFT COLUMN: Weather & News (Wider) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
           
-          {message && (
-            <div style={{ color: '#ef4444', marginBottom: '15px', fontSize: '0.9rem' }}>{message}</div>
-          )}
+          {/* Weather Widget */}
+          <div className="glass-panel" style={{ position: 'relative' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', color: 'var(--text-primary)' }}>
+              <CloudSun size={20} style={{ color: '#4f46e5' }} /> Pronóstico del Clima
+            </h2>
+            {weatherLoading ? (
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Cargando reporte de clima...</div>
+            ) : weather ? (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                  <div>
+                    <div style={{ fontSize: '3.5rem', fontWeight: '800', color: 'var(--text-primary)', lineHeight: '1' }}>
+                      {Math.round(weather.current.temperature_2m)}°C
+                    </div>
+                    <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', fontWeight: '600', marginTop: '5px' }}>
+                      {getWeatherDesc(weather.current.weather_code).icon} {getWeatherDesc(weather.current.weather_code).label}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div>Sensación: <strong>{Math.round(weather.current.apparent_temperature)}°C</strong></div>
+                    <div>Humedad: <strong>{weather.current.relative_humidity_2m}%</strong></div>
+                    <div>Viento: <strong>{Math.round(weather.current.wind_speed_10m)} km/h</strong></div>
+                  </div>
+                </div>
 
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label className="form-label">Nombre del Sitio *</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
-                placeholder="Ej. GitHub"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">URL / Dirección *</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={url} 
-                onChange={(e) => setUrl(e.target.value)} 
-                placeholder="Ej. github.com"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Tipo de Icono</label>
-              <div style={{ display: 'flex', gap: '20px', marginBottom: '10px', fontSize: '0.9rem' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                  <input 
-                    type="radio" 
-                    name="iconType" 
-                    checked={iconType === 'emoji'} 
-                    onChange={() => setIconType('emoji')} 
-                  />
-                  <span>Emoji</span>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                  <input 
-                    type="radio" 
-                    name="iconType" 
-                    checked={iconType === 'upload'} 
-                    onChange={() => setIconType('upload')} 
-                  />
-                  <span>Subir Imagen (SVG/PNG)</span>
-                </label>
-              </div>
-            </div>
-
-            {iconType === 'emoji' ? (
-              <div className="form-group">
-                <label className="form-label">Emoji</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={emoji} 
-                  onChange={(e) => setEmoji(e.target.value)} 
-                  placeholder="Ej. 💻"
-                />
+                {/* 3 Day Forecast */}
+                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '5px' }}>Próximos Días</div>
+                  {weather.daily.time.slice(1, 4).map((day, idx) => {
+                    const dayDate = new Date(day + 'T00:00:00');
+                    const dayName = dayDate.toLocaleDateString('es-ES', { weekday: 'short' });
+                    const code = weather.daily.weather_code[idx + 1];
+                    const maxTemp = Math.round(weather.daily.temperature_2m_max[idx + 1]);
+                    const minTemp = Math.round(weather.daily.temperature_2m_min[idx + 1]);
+                    return (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                        <span style={{ textTransform: 'capitalize', width: '70px', fontWeight: '500' }}>{dayName}</span>
+                        <span style={{ fontSize: '1.1rem' }} title={getWeatherDesc(code).label}>{getWeatherDesc(code).icon}</span>
+                        <span style={{ color: 'var(--text-secondary)' }}>
+                          <strong>{maxTemp}°</strong> / <span style={{ color: 'var(--text-muted)' }}>{minTemp}°</span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
-              <div className="form-group">
-                <label className="form-label">Seleccionar Icono Personalizado</label>
-                <input 
-                  type="file" 
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  style={{ color: 'var(--text-secondary)' }}
-                />
-              </div>
+              <div style={{ color: 'var(--error-color)', fontSize: '0.9rem' }}>Error al obtener datos meteorológicos.</div>
             )}
+          </div>
 
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '10px' }}>
-              Guardar Acceso Directo
-            </button>
-          </form>
-        </div>
-      )}
-
-      {!Array.isArray(shortcuts) || shortcuts.length === 0 ? (
-        <div className="glass-panel" style={{ textAlign: 'center', padding: '40px' }}>
-          <p style={{ color: 'var(--text-secondary)' }}>No hay accesos directos guardados.</p>
-          {role === 'admin' && <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '5px' }}>Haz clic en "Añadir Acceso" para crear uno.</p>}
-        </div>
-      ) : (
-        <div className="shortcuts-grid">
-          {shortcuts.map((sh) => {
-            const isCustomIcon = sh.icon_path.startsWith('/media/');
-            return (
-              <div 
-                key={sh.id} 
-                className="shortcut-card"
-                onClick={() => handleShortcutClick(sh)}
-              >
-                <div className="shortcut-icon">
-                  {isCustomIcon ? (
-                    <img src={`${sh.icon_path}`} alt={sh.name} />
-                  ) : (
-                    sh.icon_path
-                  )}
-                </div>
-                <div className="shortcut-name">{sh.name}</div>
-                <div className="shortcut-clicks">Clicks: {sh.clicks}</div>
-
-                {role === 'admin' && (
-                  <button
-                    className="btn"
-                    onClick={(e) => handleDelete(e, sh.id)}
-                    style={{
-                      position: 'absolute', top: '10px', right: '10px',
-                      padding: '5px', backgroundColor: 'transparent', color: 'var(--text-muted)',
-                      border: 'none', cursor: 'pointer'
-                    }}
-                    title="Eliminar"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
+          {/* News Feed Widget (Wider) */}
+          <div className="glass-panel">
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', color: 'var(--text-primary)' }}>
+              <Newspaper size={20} style={{ color: '#ef4444' }} /> Principales Noticias
+            </h2>
+            {newsLoading ? (
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Buscando últimas novedades...</div>
+            ) : news.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxHeight: '550px', overflowY: 'auto', paddingRight: '5px' }}>
+                {news.map((item, idx) => (
+                  <div key={idx} style={{ 
+                    borderBottom: idx < news.length - 1 ? '1px solid var(--border-color)' : 'none', 
+                    paddingBottom: idx < news.length - 1 ? '12px' : '0' 
+                  }}>
+                    <a 
+                      href={item.link} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      style={{ 
+                        textDecoration: 'none', 
+                        color: 'var(--text-primary)', 
+                        fontWeight: '600', 
+                        fontSize: '1rem',
+                        lineHeight: '1.45',
+                        display: 'block'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent-color)'}
+                      onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
+                    >
+                      {item.title}
+                    </a>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+                      <span style={{ backgroundColor: '#f1f5f9', padding: '3px 10px', borderRadius: '4px', fontWeight: '700', color: 'var(--text-secondary)' }}>
+                        {item.source}
+                      </span>
+                      <span>{item.pub_date}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-            );
-          })}
+            ) : (
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No hay noticias disponibles en este momento.</div>
+            )}
+          </div>
+
         </div>
-      )}
+
+        {/* RIGHT COLUMN: Dollar Rates & World Cup Results (Narrower: 1fr) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+          
+          {/* Dollar Rates Widget */}
+          <div className="glass-panel">
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', color: 'var(--text-primary)' }}>
+              <TrendingUp size={20} style={{ color: '#10b981' }} /> Cotización del Dólar
+            </h2>
+            {dolarLoading ? (
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Cargando cotizaciones...</div>
+            ) : dolar.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                {dolar.map((d, idx) => (
+                  <div key={idx} style={{ 
+                    border: '1px solid var(--border-color)', 
+                    borderRadius: '12px', 
+                    padding: '12px', 
+                    textAlign: 'center',
+                    backgroundColor: d.casa === 'blue' ? 'rgba(16, 185, 129, 0.03)' : 'transparent',
+                    borderColor: d.casa === 'blue' ? 'rgba(16, 185, 129, 0.2)' : 'var(--border-color)'
+                  }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: '700', color: d.casa === 'blue' ? '#047857' : 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px' }}>
+                      Dólar {d.nombre}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Compra</div>
+                      <div style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-primary)' }}>${d.compra}</div>
+                      <div style={{ width: '100%', height: '1px', backgroundColor: 'var(--border-color)', margin: '3px 0' }} />
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Venta</div>
+                      <div style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-primary)' }}>${d.venta}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ color: 'var(--error-color)', fontSize: '0.9rem' }}>No se pudo obtener la cotización del dólar.</div>
+            )}
+            <div style={{ textAlign: 'right', fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '10px' }}>Fuente: DolarAPI.com</div>
+          </div>
+
+          {/* Sports Widget: World Cup 2026 Results (Narrower Column, under Dolar) */}
+          <div className="glass-panel">
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', color: 'var(--text-primary)' }}>
+              <Trophy size={20} style={{ color: '#eab308' }} /> Resultados Mundial 2026
+            </h2>
+            
+            {/* Recent Match Results list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '2px' }}>Últimos Partidos Jugados</div>
+              {wcResults.map((r, idx) => (
+                <div key={idx} style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '3px',
+                  padding: '10px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '10px',
+                  backgroundColor: r.teams.includes('Argentina') ? 'rgba(99, 102, 241, 0.03)' : 'transparent',
+                  borderLeft: r.teams.includes('Argentina') ? '3px solid var(--accent-color)' : '1px solid var(--border-color)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <span>{r.date}</span>
+                    <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: '700' }}>{r.status}</span>
+                  </div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)', margin: '2px 0' }}>{r.teams}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{r.stage}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+      </div>
     </Layout>
   );
 }

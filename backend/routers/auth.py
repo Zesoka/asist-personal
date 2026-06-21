@@ -1,9 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from typing import Optional
+import shutil
+import uuid
+from pathlib import Path
 import database
 import security
+import config
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -17,17 +21,21 @@ class RegisterRequest(BaseModel):
     username: str
     password: str
     role: str = "user"  # "admin" or "user"
+    full_name: Optional[str] = None
 
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     role: str
     username: str
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 class UserProfile(BaseModel):
     id: int
     username: str
     role: str
+    full_name: Optional[str] = None
     avatar_url: Optional[str] = None
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -42,7 +50,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     username = payload.get("sub")
     
     with database.get_db_connection() as conn:
-        user = conn.execute("SELECT id, username, role, avatar_url FROM users WHERE username = ?", (username,)).fetchone()
+        user = conn.execute("SELECT id, username, role, full_name, avatar_url FROM users WHERE username = ?", (username,)).fetchone()
     
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -74,7 +82,9 @@ def login(req: LoginRequest):
         "access_token": access_token,
         "token_type": "bearer",
         "role": user["role"],
-        "username": user["username"]
+        "username": user["username"],
+        "full_name": user["full_name"],
+        "avatar_url": user["avatar_url"]
     }
 
 @router.post("/register")
@@ -87,8 +97,8 @@ def register(req: RegisterRequest, current_admin: dict = Depends(get_current_adm
             
         hashed_password = security.get_password_hash(req.password)
         conn.execute(
-            "INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-            (req.username, hashed_password, req.role)
+            "INSERT INTO users (username, password_hash, role, full_name) VALUES (?, ?, ?, ?)",
+            (req.username, hashed_password, req.role, req.full_name or req.username)
         )
         conn.commit()
         
@@ -103,7 +113,7 @@ def get_me(current_user: dict = Depends(get_current_user)):
 def list_users(current_admin: dict = Depends(get_current_admin)):
     """List all registered users (Admin-only)."""
     with database.get_db_connection() as conn:
-        users = conn.execute("SELECT id, username, role, avatar_url FROM users").fetchall()
+        users = conn.execute("SELECT id, username, role, full_name, avatar_url FROM users").fetchall()
     return [dict(u) for u in users]
 
 @router.delete("/users/{user_id}")
@@ -116,3 +126,107 @@ def delete_user(user_id: int, current_admin: dict = Depends(get_current_admin)):
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
         conn.commit()
     return {"message": "Usuario eliminado correctamente"}
+
+class UpdateUserRequest(BaseModel):
+    role: Optional[str] = None
+    full_name: Optional[str] = None
+    password: Optional[str] = None
+
+@router.put("/users/{user_id}")
+def update_user(user_id: int, req: UpdateUserRequest, current_admin: dict = Depends(get_current_admin)):
+    """Update a user's details (Admin-only)."""
+    with database.get_db_connection() as conn:
+        user = conn.execute("SELECT id, username, role FROM users WHERE id = ?", (user_id,)).fetchone()
+        
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+    updates = []
+    params = []
+    
+    if req.role is not None:
+        if current_admin["id"] == user_id and req.role != "admin":
+            raise HTTPException(
+                status_code=400,
+                detail="No puedes quitarte el rol de administrador a ti mismo para prevenir bloqueos de acceso"
+            )
+        updates.append("role = ?")
+        params.append(req.role)
+        
+    if req.full_name is not None:
+        updates.append("full_name = ?")
+        params.append(req.full_name)
+        
+    if req.password:
+        hashed_password = security.get_password_hash(req.password)
+        updates.append("password_hash = ?")
+        params.append(hashed_password)
+        
+    if not updates:
+        raise HTTPException(status_code=400, detail="No se especificaron cambios para actualizar")
+        
+    params.append(user_id)
+    query = f"UPDATE users SET {', '.join(updates)} WHERE id = ?"
+    
+    with database.get_db_connection() as conn:
+        conn.execute(query, tuple(params))
+        conn.commit()
+        
+    return {"message": "Usuario actualizado correctamente"}
+
+@router.put("/profile")
+def update_profile(
+    full_name: Optional[str] = Form(None),
+    password: Optional[str] = Form(None),
+    avatar: Optional[UploadFile] = File(None),
+    current_user: dict = Depends(get_current_user)
+):
+    """Update details of the currently logged-in user."""
+    updates = []
+    params = []
+    
+    if full_name is not None:
+        updates.append("full_name = ?")
+        params.append(full_name)
+        
+    if password:
+        hashed_password = security.get_password_hash(password)
+        updates.append("password_hash = ?")
+        params.append(hashed_password)
+        
+    if avatar:
+        # Validate that it is an image
+        content_type = avatar.content_type or ""
+        if not content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="El archivo debe ser una imagen")
+        
+        # Save file to media/avatars
+        file_ext = Path(avatar.filename).suffix if avatar.filename else ".png"
+        if not file_ext:
+            file_ext = ".png"
+        
+        filename = f"{uuid.uuid4().hex}{file_ext}"
+        filepath = config.AVATARS_DIR / filename
+        
+        with open(filepath, "wb") as buffer:
+            shutil.copyfileobj(avatar.file, buffer)
+            
+        avatar_url = f"/media/avatars/{filename}"
+        updates.append("avatar_url = ?")
+        params.append(avatar_url)
+        
+    if not updates:
+        raise HTTPException(status_code=400, detail="No se especificaron cambios para actualizar")
+        
+    params.append(current_user["id"])
+    query = f"UPDATE users SET {', '.join(updates)} WHERE id = ?"
+    
+    with database.get_db_connection() as conn:
+        conn.execute(query, tuple(params))
+        conn.commit()
+        
+    # Get updated user data
+    with database.get_db_connection() as conn:
+        updated = conn.execute("SELECT id, username, role, full_name, avatar_url FROM users WHERE id = ?", (current_user["id"],)).fetchone()
+        
+    return dict(updated)
