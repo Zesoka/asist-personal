@@ -5,7 +5,7 @@ import { Youtube, Sparkles, FileText, Download, AlertCircle } from 'lucide-react
 
 export default function Transcriber() {
   const [youtubeUrl, setYoutubeUrl] = useState('');
-  const [provider, setProvider] = useState('mock');
+  const [provider, setProvider] = useState('gemini');
   const [customKey, setCustomKey] = useState('');
   const [tutorial, setTutorial] = useState('');
   const [loading, setLoading] = useState(false);

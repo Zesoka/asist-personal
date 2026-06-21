@@ -47,7 +47,7 @@ def get_transcript(video_id):
     if not YOUTUBE_TRANSCRIPT_AVAILABLE:
         return None, "youtube-transcript-api no está instalada"
     try:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        transcript_list = YouTubeTranscriptApi().list(video_id)
         try:
             transcript = transcript_list.find_transcript(['es'])
         except Exception:
