@@ -9,7 +9,7 @@ from routers.auth import get_current_user
 
 router = APIRouter(prefix="/notes", tags=["notes"])
 
-@router.get("/")
+@router.get("")
 def list_notes(current_user: dict = Depends(get_current_user)):
     """Retrieve all notes, newest first. Includes author usernames."""
     with database.get_db_connection() as conn:
@@ -21,7 +21,7 @@ def list_notes(current_user: dict = Depends(get_current_user)):
         """).fetchall()
     return [dict(r) for r in rows]
 
-@router.post("/")
+@router.post("")
 async def add_note(
     title: str = Form(...),
     content: str = Form(...),

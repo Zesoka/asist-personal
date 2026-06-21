@@ -9,14 +9,14 @@ from routers.auth import get_current_user, get_current_admin
 
 router = APIRouter(prefix="/shortcuts", tags=["shortcuts"])
 
-@router.get("/")
+@router.get("")
 def list_shortcuts(current_user: dict = Depends(get_current_user)):
     """Retrieve all shortcuts ordered by clicks."""
     with database.get_db_connection() as conn:
         rows = conn.execute("SELECT * FROM shortcuts ORDER BY clicks DESC, name ASC").fetchall()
     return [dict(r) for r in rows]
 
-@router.post("/")
+@router.post("")
 async def add_shortcut(
     name: str = Form(...),
     url: str = Form(...),

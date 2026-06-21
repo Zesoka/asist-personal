@@ -114,7 +114,7 @@ export const api = {
 
   // --- SHORTCUTS SERVICES ---
   async listShortcuts() {
-    const res = await fetch(`${API_URL}/shortcuts/`, {
+    const res = await fetch(`${API_URL}/shortcuts`, {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Error al obtener accesos directos');
@@ -122,7 +122,7 @@ export const api = {
   },
 
   async createShortcut(formData) {
-    const res = await fetch(`${API_URL}/shortcuts/`, {
+    const res = await fetch(`${API_URL}/shortcuts`, {
       method: 'POST',
       headers: getHeaders(true),
       body: formData
@@ -149,7 +149,7 @@ export const api = {
 
   // --- NOTES SERVICES ---
   async listNotes() {
-    const res = await fetch(`${API_URL}/notes/`, {
+    const res = await fetch(`${API_URL}/notes`, {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Error al obtener notas');
@@ -157,7 +157,7 @@ export const api = {
   },
 
   async createNote(formData) {
-    const res = await fetch(`${API_URL}/notes/`, {
+    const res = await fetch(`${API_URL}/notes`, {
       method: 'POST',
       headers: getHeaders(true),
       body: formData
