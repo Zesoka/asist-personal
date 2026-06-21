@@ -1,0 +1,39 @@
+# Databases
+*.db
+*.db-journal
+*.sqlite3
+backend/hub_personal.db
+hub_personal.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+env/
+.env
+backend/.env
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+build/
+frontend/node_modules/
+frontend/.next/
+.env*.local
+
+# Media / Uploads (User generated media)
+backend/media/
+media/
+exports/
+frontend/public/uploads/
+
+# IDEs & System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
