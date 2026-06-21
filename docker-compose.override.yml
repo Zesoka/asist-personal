@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  backend:
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - db-data:/app/db_dir
+      - media-data:/app/media
+    networks:
+      - default
+
+  frontend:
+    ports:
+      - "8501:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    # Run in development mode locally
+    command: npm run dev
+    networks:
+      - default
+
+networks:
+  # Define local default network so we don't depend on the external NPM network locally
+  default:
+    driver: bridge
