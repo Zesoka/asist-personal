@@ -148,14 +148,14 @@ export default function DashboardHome() {
     return `${days[d.getDay()]}, ${d.getDate()} de ${months[d.getMonth()]} de ${d.getFullYear()}`;
   };
 
-  // World Cup recent match results
+  // World Cup recent match results (Actual tournament context as of June 2026)
   const wcResults = [
-    { date: '19 Jun 2026', teams: '🇦🇷 Argentina 2 - 0 🇵🇱 Polonia', stage: 'Fase de Grupos (Grupo C)', status: 'Finalizado' },
-    { date: '18 Jun 2026', teams: '🇲🇽 México 1 - 0 🇮🇹 Italia', stage: 'Fase de Grupos (Grupo A)', status: 'Finalizado' },
-    { date: '18 Jun 2026', teams: '🇺🇸 EE.UU. 3 - 1 🇨🇲 Camerún', stage: 'Fase de Grupos (Grupo B)', status: 'Finalizado' },
-    { date: '17 Jun 2026', teams: '🇨🇦 Canadá 2 - 2 🇩🇿 Argelia', stage: 'Fase de Grupos (Grupo D)', status: 'Finalizado' },
-    { date: '15 Jun 2026', teams: '🇦🇷 Argentina 3 - 0 🇳🇿 Nueva Zelanda', stage: 'Fase de Grupos (Grupo C)', status: 'Finalizado' },
-    { date: '14 Jun 2026', teams: '🇧🇷 Brasil 2 - 1 🇸🇪 Suecia', stage: 'Fase de Grupos (Grupo F)', status: 'Finalizado' }
+    { date: '22 Jun 2026 (Mañana)', teams: '🇦🇷 Argentina vs. 🇦🇹 Austria', stage: 'Grupo J (Fase de Grupos)', status: 'Próximo - 22:00' },
+    { date: '16 Jun 2026', teams: '🇦🇷 Argentina 3 - 0 🇩🇿 Argelia', stage: 'Grupo J (Fase de Grupos)', status: 'Finalizado' },
+    { date: '12 Jun 2026', teams: '🇺🇸 EE.UU. 4 - 1 🇵🇾 Paraguay', stage: 'Grupo D (Fase de Grupos)', status: 'Finalizado' },
+    { date: '12 Jun 2026', teams: '🇨🇦 Canadá 1 - 1 🇧🇦 Bosnia y H.', stage: 'Grupo B (Fase de Grupos)', status: 'Finalizado' },
+    { date: '11 Jun 2026', teams: '🇲🇽 México 2 - 0 🇿🇦 Sudáfrica', stage: 'Grupo A (Partido Inaugural)', status: 'Finalizado' },
+    { date: '27 Jun 2026', teams: '🇯🇴 Jordania vs. 🇦🇷 Argentina', stage: 'Grupo J (Fase de Grupos)', status: 'Próximamente' }
   ];
 
   return (
