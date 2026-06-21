@@ -142,8 +142,12 @@ export const api = {
   },
 
   // --- CALENDAR SERVICES ---
-  async listFamilyEvents() {
-    const res = await fetch(`${API_URL}/calendar/events`, {
+  async listFamilyEvents(startDate, endDate) {
+    let url = `${API_URL}/calendar/events`;
+    if (startDate && endDate) {
+      url += `?start_date=${startDate}&end_date=${endDate}`;
+    }
+    const res = await fetch(url, {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Error al obtener eventos familiares');
@@ -171,11 +175,36 @@ export const api = {
     return res.json();
   },
 
-  async getGoogleEvents() {
-    const res = await fetch(`${API_URL}/calendar/google-events`, {
+  async getGoogleEvents(startDate, endDate) {
+    let url = `${API_URL}/calendar/google-events`;
+    if (startDate && endDate) {
+      url += `?start_date=${startDate}&end_date=${endDate}`;
+    }
+    const res = await fetch(url, {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Error al obtener eventos de Google');
+    return res.json();
+  },
+
+  async getGoogleAuthUrl() {
+    const res = await fetch(`${API_URL}/calendar/auth-url`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Error al obtener URL de autorización de Google');
+    return res.json();
+  },
+
+  async uploadGoogleCredentials(formData) {
+    const res = await fetch(`${API_URL}/calendar/upload-credentials`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: formData
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Error al subir las credenciales de Google');
+    }
     return res.json();
   },
 

@@ -52,7 +52,6 @@ def generate_ai_response(history_list: List[dict]) -> str:
                 role_label = "Familiar" if msg["role"] == "user" else "Milo (Tú)"
                 contents.append(f"{role_label}: {msg['content']}")
             
-            contents.append("Familiar: " + history_list[-1]["content"]) # Add the latest message again to prompt response
             contents.append("Milo (Tú):")
             
             prompt = "\n".join(contents)
@@ -127,16 +126,17 @@ def chat_with_assistant(req: AIChatRequest, current_user: dict = Depends(get_cur
         )
         conn.commit()
         
-        # Load last 10 messages for context
+        # Load last 10 messages for context (latest first)
         rows = conn.execute("""
             SELECT role, content 
             FROM ai_conversations 
             WHERE user_id = ? 
-            ORDER BY created_at ASC 
+            ORDER BY created_at DESC 
             LIMIT 10
         """, (current_user["id"],)).fetchall()
         
-    history = [dict(r) for r in rows]
+    # Reverse to restore chronological order
+    history = [dict(r) for r in reversed(rows)]
     
     # Generate response
     ai_reply = generate_ai_response(history)
