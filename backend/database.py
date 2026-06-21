@@ -103,7 +103,7 @@ def init_db():
             )
         else:
             cursor.execute(
-                "UPDATE users SET full_name = 'Bruno Almiron' WHERE username = 'admin' AND (full_name IS NULL OR full_name = '')"
+                "UPDATE users SET full_name = 'Bruno Almiron' WHERE username IN ('admin', 'balmiron') AND (full_name IS NULL OR full_name = '')"
             )
             
         # Seed some default shortcuts if empty

@@ -25,6 +25,13 @@ export default function DashboardHome() {
       const storedFullName = localStorage.getItem('full_name');
       const storedUsername = localStorage.getItem('username');
       setDisplayName(storedFullName || storedUsername || 'Familiar');
+      
+      api.getMe().then((data) => {
+        setDisplayName(data.full_name || data.username || 'Familiar');
+      }).catch((err) => {
+        console.error('Error syncing welcome display name:', err);
+      });
+
       loadWeatherAndLocation();
       fetchDolarRates();
       fetchNews();
