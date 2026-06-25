@@ -117,35 +117,7 @@ export default function Transcriber() {
         {/* Form settings */}
         <div className="glass-panel">
           <form onSubmit={handleProcess} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Motor de Inteligencia Artificial</label>
-                <select 
-                  className="form-input" 
-                  value={provider} 
-                  onChange={(e) => setProvider(e.target.value)}
-                  disabled={loading}
-                >
-                  <option value="mock">Prueba (Modo Mock - Rápido)</option>
-                  <option value="gemini">Google Gemini 2.5 Flash</option>
-                  <option value="openai">OpenAI GPT-4o-Mini</option>
-                </select>
-              </div>
 
-              {provider !== 'mock' && (
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">API Key (Opcional, usa clave de servidor .env)</label>
-                  <input 
-                    type="password" 
-                    className="form-input" 
-                    value={customKey}
-                    onChange={(e) => setCustomKey(e.target.value)}
-                    placeholder="Ingresa clave API para esta sesión"
-                    disabled={loading}
-                  />
-                </div>
-              )}
-            </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Enlace del Video de YouTube</label>
