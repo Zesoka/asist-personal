@@ -11,6 +11,7 @@ import tempfile
 import yt_dlp
 import config
 from google import genai
+from google.genai import types
 from utils.document_generator import generate_md, generate_pdf, generate_docx
 from routers.auth import get_current_user
 
@@ -76,13 +77,29 @@ def transcribe_and_format_audio(filepath: str, title: str, url: str, api_key: st
     """Uploads the audio file to Google Gemini Files API, polls until processed, generates content, and deletes the remote file."""
     client = genai.Client(api_key=api_key)
     
-    # 1. Upload file using Gemini Files API
-    file_ref = client.files.upload(file=filepath)
+    # Determine mime type from extension
+    ext = filepath.split('.')[-1].lower()
+    mime_types = {
+        'm4a': 'audio/mp4',
+        'webm': 'audio/webm',
+        'mp3': 'audio/mp3',
+        'aac': 'audio/aac',
+        'ogg': 'audio/ogg',
+        'wav': 'audio/wav'
+    }
+    mime_type = mime_types.get(ext, 'audio/mp4')
+    
+    # 1. Upload file using Gemini Files API with explicit config
+    file_ref = client.files.upload(
+        file=filepath,
+        config=types.UploadFileConfig(
+            mime_type=mime_type
+        )
+    )
     file_resource_name = file_ref.name
     
     try:
         # 2. Poll status until active
-        from google.genai import types
         for _ in range(90):  # wait up to 3 minutes
             file_info = client.files.get(name=file_resource_name)
             if file_info.state == types.FileState.ACTIVE:
